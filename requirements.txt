@@ -1,5 +1,5 @@
 opencv-python-headless
-tensorflow
+tensorflow-cpu
 scikit-learn
 numpy
 pillow
