@@ -69,11 +69,9 @@ Top-N Retrieval
 
 ```text
 project/
-│
 ├── app.py
 ├── data/
 ├── requirements.txt
-└── README.md
 ```
 
 ---
@@ -83,8 +81,8 @@ project/
 Clone repository:
 
 ```bash
-git clone https://github.com/username/repository-name.git
-cd repository-name
+git clone https://github.com/kwikandreas/retrieval.git
+cd retrieval
 ```
 
 Install dependency:
