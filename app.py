@@ -47,23 +47,24 @@ def build_database_index(db_path, _model):
     if not os.path.exists(db_path):
         return None, None, []
 
-    for filename in os.listdir(db_path):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            img_path = os.path.join(db_path, filename)
-            try:
-                img, mask = segment_image(img_path)
-                color_vec = extract_color_features(img, mask)
-                color_norm = normalize(color_vec.reshape(1, -1), norm='l2').flatten()
-                
-                resnet_vec = extract_resnet_features(img_path, _model)
-                resnet_norm = normalize(resnet_vec.reshape(1, -1), norm='l2').flatten()
-                
-                color_feats_list.append(color_norm)
-                resnet_feats_list.append(resnet_norm)
-                image_paths_list.append(img_path)
-            except Exception as e:
-                print(f"Gagal indexing {filename}: {e}")
-                
+    for root, dirs, files in os.walk(db_path):
+        for filename in files:
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                img_path = os.path.join(root, filename)
+                try:
+                    img, mask = segment_image(img_path)
+                    color_vec = extract_color_features(img, mask)
+                    color_norm = normalize(color_vec.reshape(1, -1), norm='l2').flatten()
+                    
+                    resnet_vec = extract_resnet_features(img_path, _model)
+                    resnet_norm = normalize(resnet_vec.reshape(1, -1), norm='l2').flatten()
+                    
+                    color_feats_list.append(color_norm)
+                    resnet_feats_list.append(resnet_norm)
+                    image_paths_list.append(img_path)
+                except Exception as e:
+                    print(f"Gagal indexing {filename}: {e}")
+                    
     return np.array(color_feats_list), np.array(resnet_feats_list), image_paths_list
 
 with st.spinner("Sedang memuat database citra... Mohon tunggu..."):
@@ -120,11 +121,14 @@ with st.spinner("Sedang memuat database citra... Mohon tunggu..."):
                     st.subheader(f"Hasil Gambar Terkemiripan Tertinggi (Top {top_n})", anchor=False)
                     
                     grid_cols = st.columns(top_n)
-                    for rank_idx, db_idx in enumerate(sorted_indices):
-                        with grid_cols[rank_idx]:
-                            sim_score = similarities[db_idx]
-                            sim_percentage = min(sim_score * 100, 100.0) 
-                            img_file_path = image_paths[db_idx]
-                            
-                            st.metric(label=f"Peringkat ke-{rank_idx + 1}", value=f"{sim_percentage:.2f} %")
-                            st.image(img_file_path, caption=os.path.basename(img_file_path), use_container_width=True)
+                for rank_idx, db_idx in enumerate(sorted_indices):
+                    with grid_cols[rank_idx]:
+                        sim_score = similarities[db_idx]
+                        sim_percentage = min(sim_score * 100, 100.0) 
+                        img_file_path = image_paths[db_idx]
+                        
+                        category_name = os.path.basename(os.path.dirname(img_file_path))
+                        file_name = os.path.basename(img_file_path)
+                        
+                        st.metric(label=f"Peringkat ke-{rank_idx + 1}", value=f"{sim_percentage:.2f} %")
+                        st.image(img_file_path, caption=f"[{category_name.upper()}] {file_name}", use_container_width=True)
