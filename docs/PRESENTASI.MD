@@ -165,14 +165,17 @@ cv2.threshold(
 ## Bagian Kode 3 — Ekstraksi Warna
 
 ```python
-cv2.calcHist(...)
+cv2.calcHist([hsv], [0, 1, 2], mask, [8, 8, 8], ...)
+cv2.normalize(hist, hist)
 ```
 
 ### Yang Dijelaskan
 
-* Mengambil distribusi warna objek.
-* Menggunakan ruang warna HSV.
-* Lebih stabil dibanding RGB.
+* Mengambil distribusi warna objek secara menyeluruh.
+* Menggunakan ruang warna HSV lengkap (Hue, Saturation, Value) dengan 8x8x8 bin.
+* Menghasilkan vektor fitur 512 dimensi.
+* Penggunaan channel Value (kecerahan) membedakan buah yang warnanya mirip tapi berbeda gelap-terangnya (seperti merah Cherry dan merah Apel).
+* Dilakukan normalisasi agar pencarian kebal terhadap perbedaan ukuran buah pada gambar.
 
 ---
 
@@ -223,7 +226,9 @@ Tampilan Awal Program
 
 Yang disampaikan:
 
-"Aplikasi dibuat menggunakan Streamlit sehingga pengguna dapat berinteraksi melalui browser."
+"Aplikasi dirancang dengan antarmuka (UI) yang bersih, profesional, dan modern."
+"Menyediakan manajemen *cache* (tombol Refresh Database) sehingga sistem mendeteksi penambahan data secara instan."
+"Pengguna dapat berinteraksi langsung melalui browser tanpa batasan format UI Streamlit bawaan."
 
 ---
 

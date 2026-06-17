@@ -15,13 +15,14 @@ Metode yang digunakan menggabungkan:
 
 ## ✨ Fitur
 
-- Upload gambar query
+- Upload gambar query (Format didukung: JPG, JPEG, PNG)
 - Segmentasi objek menggunakan Otsu Thresholding
-- Ekstraksi fitur warna HSV
+- Ekstraksi fitur warna HSV (8x8x8 Bins / 512 Dimensi lengkap dengan Value kecerahan)
 - Ekstraksi fitur bentuk dan tekstur menggunakan ResNet50
 - Pengaturan bobot fitur secara interaktif
+- Manajemen Cache / Reload Database via antarmuka
 - Menampilkan hasil pencarian Top-N
-- Dashboard berbasis Streamlit
+- Dashboard berbasis Streamlit dengan UI/UX Modern yang bersih
 
 ---
 
