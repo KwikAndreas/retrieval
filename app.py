@@ -1,4 +1,5 @@
 import os
+
 import cv2
 import numpy as np
 import streamlit as st
@@ -8,7 +9,7 @@ from tensorflow.keras.preprocessing import image as keras_image
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
-st.set_page_config(layout="wide", page_title="Hybrid Image Retrieval", page_icon="🍎")
+st.set_page_config(layout="wide", page_title="Image Retrieval", page_icon="🍎")
 
 @st.cache_resource
 def load_cv_model():
@@ -27,7 +28,8 @@ def segment_image(img_path):
 
 def extract_color_features(img, mask):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    hist = cv2.calcHist([hsv], [0, 1], mask, [180, 256], [0, 180, 0, 256])
+    hist = cv2.calcHist([hsv], [0, 1, 2], mask, [8, 8, 8], [0, 180, 0, 256, 0, 256])
+    cv2.normalize(hist, hist)
     return hist.flatten()
 
 def extract_resnet_features(img_path, model):
@@ -39,7 +41,7 @@ def extract_resnet_features(img_path, model):
     return features.flatten()
 
 @st.cache_data
-def build_database_index(db_path, _model):
+def build_database_index(db_path, _model, version=2):
     color_feats_list = []
     resnet_feats_list = []
     image_paths_list = []
@@ -67,43 +69,67 @@ def build_database_index(db_path, _model):
                     
     return np.array(color_feats_list), np.array(resnet_feats_list), image_paths_list
 
-with st.spinner("Sedang memuat database citra... Mohon tunggu..."):
-    db_color, db_resnet, image_paths = build_database_index(database_path, base_model)
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    .stImage > img {
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-    st.title("Sistem Temu Kembali Citra Buah", anchor="false")
-    st.write("Proyek UAS Computer Vision - Kombinasi Ekstraksi Fitur Tradisional (HSV Histogram) & Deep Learning (ResNet50)")
+st.title("Sistem Temu Kembali Citra")
+st.markdown("Content-Based Image Retrieval menggunakan ekstraksi fitur hibrida (HSV Histogram & ResNet50).")
 
-    st.sidebar.header("Kontrol Bobot Fitur (Feature Fusion)", anchor=False)
-    color_weight = st.sidebar.slider("Fokus Fitur Warna (Tradisional)", 0.0, 1.0, 0.5, 0.1)
-    resnet_weight = st.sidebar.slider("Fokus Fitur Bentuk/Tekstur (AI ResNet)", 0.0, 1.0, 0.5, 0.1)
-    top_n = st.sidebar.selectbox("Jumlah Hasil Tampilan (Top-N)", [3, 5, 10], index=1)
+with st.spinner("Memuat indeks database..."):
+    db_color, db_resnet, image_paths = build_database_index(database_path, base_model, version=2)
 
-    st.sidebar.markdown("---")
-    st.sidebar.info("Tips: Coba ubah slider ke 1.0 Warna saja atau 1.0 AI saja untuk melihat perbedaan akurasi pencarian!")
+st.divider()
 
-    uploaded_file = st.file_uploader("Unggah Gambar Query Kamu dari Device...", type=["jpg", "jpeg", "png"])
+col_main, col_sidebar = st.columns([3, 1], gap="large")
+
+with col_sidebar:
+    st.subheader("Konfigurasi")
+    
+    with st.expander("Pembobotan Fitur", expanded=True):
+        color_weight = st.slider("Bobot Warna (HSV)", 0.0, 1.0, 0.5, 0.1)
+        resnet_weight = st.slider("Bobot Tekstur (ResNet50)", 0.0, 1.0, 0.5, 0.1)
+        
+    top_n = st.selectbox("Jumlah Hasil (Top-N)", [3, 5, 10, 15, 20], index=1)
+    
+    if st.button("Segarkan Database", use_container_width=True, help="Klik untuk memuat ulang database jika ada perubahan gambar atau kode."):
+        st.cache_data.clear()
+        
+    st.caption("Format gambar yang didukung: JPG, JPEG, PNG.")
+
+with col_main:
+    st.subheader("Query Pencarian")
+    uploaded_file = st.file_uploader("Unggah citra referensi", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
 
     if uploaded_file is not None:
         temp_query_path = "temp_query.jpg"
         with open(temp_query_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
             
-        col_q1, col_q2 = st.columns(2)
-        with col_q1:
-            st.subheader("Gambar Query Asli", anchor=False)
-            st.image(uploaded_file, width=512)
-            
-        with col_q2:
-            st.subheader("Hasil Segmentasi Objek (Mask)", anchor=False)
+        q_col1, q_col2, _ = st.columns([1, 1, 2])
+        with q_col1:
+            st.image(uploaded_file, caption="Citra Asli", use_container_width=True)
+        with q_col2:
             _, query_mask = segment_image(temp_query_path)
-            st.image(query_mask, caption="Mask Hitam-Putih Otsu Thresholding", width=512)
+            st.image(query_mask, caption="Mask Segmentasi (Otsu)", use_container_width=True)
 
-        # --- TOMBOL AKSI PENCARIAN ---
-        if st.button("Jalankan Pencarian Gambar", type="primary"):
+        if st.button("Jalankan Pencarian", type="primary"):
             if len(image_paths) == 0:
-                st.error(f"Folder '{database_path}' kosong atau tidak ditemukan!")
+                st.error("Database kosong atau direktori tidak ditemukan.")
             else:
-                with st.spinner("Sistem sedang menghitung Cosine Similarity..."):
+                with st.spinner("Menghitung similaritas..."):
                     q_img, q_mask = segment_image(temp_query_path)
                     q_color = extract_color_features(q_img, q_mask)
                     q_resnet = extract_resnet_features(temp_query_path, base_model)
@@ -117,18 +143,22 @@ with st.spinner("Sedang memuat database citra... Mohon tunggu..."):
                     similarities = cosine_similarity(q_hybrid, db_hybrid)[0]
                     sorted_indices = np.argsort(similarities)[::-1][:top_n]
                     
-                    st.markdown("---")
-                    st.subheader(f"Hasil Gambar Terkemiripan Tertinggi (Top {top_n})", anchor=False)
+                    st.divider()
+                    st.subheader("Hasil Pencarian")
                     
-                    grid_cols = st.columns(top_n)
-                for rank_idx, db_idx in enumerate(sorted_indices):
-                    with grid_cols[rank_idx]:
-                        sim_score = similarities[db_idx]
-                        sim_percentage = min(sim_score * 100, 100.0) 
-                        img_file_path = image_paths[db_idx]
-                        
-                        category_name = os.path.basename(os.path.dirname(img_file_path))
-                        file_name = os.path.basename(img_file_path)
-                        
-                        st.metric(label=f"Peringkat ke-{rank_idx + 1}", value=f"{sim_percentage:.2f} %")
-                        st.image(img_file_path, caption=f"[{category_name.upper()}] {file_name}", use_container_width=True)
+                    num_cols = min(top_n, 5)
+                    for i in range(0, top_n, num_cols):
+                        cols = st.columns(num_cols)
+                        for j in range(num_cols):
+                            rank_idx = i + j
+                            if rank_idx < top_n:
+                                db_idx = sorted_indices[rank_idx]
+                                with cols[j]:
+                                    sim_score = similarities[db_idx]
+                                    sim_percentage = min(sim_score * 100, 100.0) 
+                                    img_path = image_paths[db_idx]
+                                    
+                                    category = os.path.basename(os.path.dirname(img_path))
+                                    
+                                    st.image(img_path, use_container_width=True)
+                                    st.caption(f"**{category.upper()}** • {sim_percentage:.1f}%")
